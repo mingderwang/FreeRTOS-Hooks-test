@@ -278,7 +278,7 @@ void StartDefaultTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-		(LED2);
+	BSP_LED_Toggle(LED2);
     osDelay(1000);
   }
   /* USER CODE END 5 */
