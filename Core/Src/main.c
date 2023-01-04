@@ -1,20 +1,20 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2023 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2023 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -22,7 +22,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdio.h>
+#include <stdarg.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,8 +44,11 @@
 UART_HandleTypeDef hlpuart1;
 
 osThreadId defaultTaskHandle;
+osThreadId print_idleHandle;
+osTimerId myTimer01Handle;
+osSemaphoreId printfBinarySem01Handle;
 /* USER CODE BEGIN PV */
-
+static uint32_t ulIdleCycleCount;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -52,6 +56,8 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_LPUART1_UART_Init(void);
 void StartDefaultTask(void const * argument);
+void StartTask02(void const * argument);
+void Callback01(void const * argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -59,7 +65,12 @@ void StartDefaultTask(void const * argument);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+void vApplicationIdleHook(void) {
+	// Write your code here
+	// NOTE, Make sure it is compact
+	// BSP_LED_Toggle(LED2);
+	ulIdleCycleCount++;
+}
 /* USER CODE END 0 */
 
 /**
@@ -85,7 +96,7 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-  BSP_LED_Init(LED2);
+	BSP_LED_Init(LED2);
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -96,19 +107,29 @@ int main(void)
   /* USER CODE END 2 */
 
   /* USER CODE BEGIN RTOS_MUTEX */
-  /* add mutexes, ... */
+	/* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
 
+  /* Create the semaphores(s) */
+  /* definition and creation of printfBinarySem01 */
+  osSemaphoreDef(printfBinarySem01);
+  printfBinarySem01Handle = osSemaphoreCreate(osSemaphore(printfBinarySem01), 1);
+
   /* USER CODE BEGIN RTOS_SEMAPHORES */
-  /* add semaphores, ... */
+	/* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
 
+  /* Create the timer(s) */
+  /* definition and creation of myTimer01 */
+  osTimerDef(myTimer01, Callback01);
+  myTimer01Handle = osTimerCreate(osTimer(myTimer01), osTimerPeriodic, NULL);
+  osTimerStart(myTimer01Handle, 2000);
   /* USER CODE BEGIN RTOS_TIMERS */
-  /* start timers, add new ones, ... */
+	/* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
-  /* add queues, ... */
+	/* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
@@ -116,8 +137,12 @@ int main(void)
   osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
+  /* definition and creation of print_idle */
+  osThreadDef(print_idle, StartTask02, osPriorityIdle, 0, 128);
+  print_idleHandle = osThreadCreate(osThread(print_idle), NULL);
+
   /* USER CODE BEGIN RTOS_THREADS */
-  /* add threads, ... */
+	/* add threads, ... */
   /* USER CODE END RTOS_THREADS */
 
   /* Start scheduler */
@@ -126,12 +151,11 @@ int main(void)
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
+	while (1) {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-  }
+	}
   /* USER CODE END 3 */
 }
 
@@ -262,26 +286,75 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+static void UARTPrintf(const char *pFormat, ...) {
+	char buffer[64];
+	va_list args;
+	va_start(args, pFormat);
+	__disable_irq();
+	int len = vsprintf(buffer, pFormat, args);
+	__enable_irq();
+
+	for (int i = 0; i < len; i++) {
+		__disable_irq();
+		HAL_UART_Transmit(&hlpuart1, (uint8_t*) &buffer[i], 1, HAL_MAX_DELAY);
+		__enable_irq();
+	}
+	va_end(args);
+}
 
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
 /**
-  * @brief  Function implementing the defaultTask thread.
-  * @param  argument: Not used
-  * @retval None
-  */
+ * @brief  Function implementing the defaultTask thread.
+ * @param  argument: Not used
+ * @retval None
+ */
 /* USER CODE END Header_StartDefaultTask */
 void StartDefaultTask(void const * argument)
 {
   /* USER CODE BEGIN 5 */
-  /* Infinite loop */
-  for(;;)
-  {
-	BSP_LED_Toggle(LED2);
-    osDelay(1000);
-  }
+	osStatus val;
+	/* Infinite loop */
+	for (;;) {
+		osDelay(3); // 3ms
+		val = osSemaphoreRelease(printfBinarySem01Handle);
+		if (val == osOK) {
+
+		}
+	}
   /* USER CODE END 5 */
+}
+
+/* USER CODE BEGIN Header_StartTask02 */
+/**
+ * @brief Function implementing the print_idle thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_StartTask02 */
+void StartTask02(void const * argument)
+{
+  /* USER CODE BEGIN StartTask02 */
+	int32_t val;
+	/* Infinite loop */
+	for (;;) {
+		val = osSemaphoreWait(printfBinarySem01Handle, osWaitForever); // wait forever
+		if (val > 0) {
+			// semaphore was acquired
+			UARTPrintf("IdleCount %u\n\r", ulIdleCycleCount);
+		}
+	}
+  /* USER CODE END StartTask02 */
+}
+
+/* Callback01 function */
+void Callback01(void const * argument)
+{
+  /* USER CODE BEGIN Callback01 */
+	BSP_LED_Toggle(LED2);
+	UARTPrintf("IdleCount %u\n\r", ulIdleCycleCount);
+  /* USER CODE END Callback01 */
 }
 
 /**
@@ -312,11 +385,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add his own implementation to report the HAL error return state */
-  __disable_irq();
-  while (1)
-  {
-  }
+	/* User can add his own implementation to report the HAL error return state */
+	__disable_irq();
+	while (1) {
+	}
   /* USER CODE END Error_Handler_Debug */
 }
 
