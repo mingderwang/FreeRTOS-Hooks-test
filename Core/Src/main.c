@@ -143,6 +143,7 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
+  osSemaphoreRelease(printfBinarySem01Handle);
   /* USER CODE END RTOS_THREADS */
 
   /* Start scheduler */
@@ -314,13 +315,15 @@ static void UARTPrintf(const char *pFormat, ...) {
 void StartDefaultTask(void const * argument)
 {
   /* USER CODE BEGIN 5 */
-	osStatus val;
+	int32_t val;
 	/* Infinite loop */
 	for (;;) {
-		osDelay(3); // 3ms
-		val = osSemaphoreRelease(printfBinarySem01Handle);
-		if (val == osOK) {
-
+		osDelay(2000);
+		val = osSemaphoreWait(printfBinarySem01Handle, 1); // wait forever
+		if (val > 0) {
+			// semaphore was acquired
+			UARTPrintf("Hello %s\n\r", "jongen");
+			osSemaphoreRelease(printfBinarySem01Handle);
 		}
 	}
   /* USER CODE END 5 */
@@ -339,10 +342,12 @@ void StartTask02(void const * argument)
 	int32_t val;
 	/* Infinite loop */
 	for (;;) {
-		val = osSemaphoreWait(printfBinarySem01Handle, osWaitForever); // wait forever
+		osDelay(500);
+		val = osSemaphoreWait(printfBinarySem01Handle, 1); // wait forever
 		if (val > 0) {
 			// semaphore was acquired
-			UARTPrintf("IdleCount %u\n\r", ulIdleCycleCount);
+			UARTPrintf("Hello %s\n\r", "boy");
+			osSemaphoreRelease(printfBinarySem01Handle);
 		}
 	}
   /* USER CODE END StartTask02 */
