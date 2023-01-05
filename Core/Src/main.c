@@ -18,7 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "cmsis_os2.h"
+#include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -67,6 +67,11 @@ osSemaphoreId_t printfBinarySem01Handle;
 const osSemaphoreAttr_t printfBinarySem01_attributes = {
   .name = "printfBinarySem01"
 };
+/* Definitions for myCountingSem01 */
+osSemaphoreId_t myCountingSem01Handle;
+const osSemaphoreAttr_t myCountingSem01_attributes = {
+  .name = "myCountingSem01"
+};
 /* USER CODE BEGIN PV */
 static uint32_t ulIdleCycleCount;
 static osStatus_t semaGet;
@@ -86,12 +91,7 @@ void Callback01(void *argument);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void vApplicationIdleHook(void) {
-	// Write your code here
-	// NOTE, Make sure it is compact
-	// BSP_LED_Toggle(LED2);
-	ulIdleCycleCount++;
-}
+
 /* USER CODE END 0 */
 
 /**
@@ -137,6 +137,9 @@ int main(void)
   /* Create the semaphores(s) */
   /* creation of printfBinarySem01 */
   printfBinarySem01Handle = osSemaphoreNew(1, 1, &printfBinarySem01_attributes);
+
+  /* creation of myCountingSem01 */
+  myCountingSem01Handle = osSemaphoreNew(2, 2, &myCountingSem01_attributes);
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
 	/* add semaphores, ... */
@@ -328,6 +331,12 @@ static void UARTPrintf(const char *pFormat, ...) {
 	va_end(args);
 }
 
+void vApplicationIdleHook(void) {
+	// Write your code here
+	// NOTE, Make sure it is compact
+	// BSP_LED_Toggle(LED2);
+	ulIdleCycleCount++;
+}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -343,11 +352,11 @@ void StartDefaultTask(void *argument)
 	/* Infinite loop */
 	for (;;) {
 		osDelay(2000);
-		semaGet = osSemaphoreAcquire(printfBinarySem01Handle, 1); // wait forever
+		semaGet = osSemaphoreAcquire(myCountingSem01Handle, 1); // wait forever
 		if (semaGet == osOK) {
 			// semaphore was acquired
 			UARTPrintf("Hallo %s\n\r", "jongen");
-			osSemaphoreRelease(printfBinarySem01Handle);
+			osSemaphoreRelease(myCountingSem01Handle);
 		}
 	}
   /* USER CODE END 5 */
@@ -366,11 +375,11 @@ void StartTask02(void *argument)
 	/* Infinite loop */
 	for (;;) {
 		osDelay(500);
-		semaGet = osSemaphoreAcquire(printfBinarySem01Handle, 1); // wait forever
+		semaGet = osSemaphoreAcquire(myCountingSem01Handle, 1); // wait forever
 		if (semaGet == osOK) {
 			// semaphore was acquired
 			UARTPrintf("Hello %s\n\r", "boy");
-			osSemaphoreRelease(printfBinarySem01Handle);
+			osSemaphoreRelease(myCountingSem01Handle);
 		}
 	}
   /* USER CODE END StartTask02 */
@@ -380,8 +389,17 @@ void StartTask02(void *argument)
 void Callback01(void *argument)
 {
   /* USER CODE BEGIN Callback01 */
+	int32_t count;
 	BSP_LED_Toggle(LED2);
-	UARTPrintf("IdleCount %u\n\r", ulIdleCycleCount);
+
+	count = osSemaphoreGetCount(myCountingSem01Handle);
+
+	semaGet = osSemaphoreAcquire(myCountingSem01Handle, 1); // wait forever
+	if (semaGet == osOK) {
+		// semaphore was acquired
+		UARTPrintf("(%d) IdleCount %u\n\r", count, ulIdleCycleCount);
+		osSemaphoreRelease(myCountingSem01Handle);
+	}
   /* USER CODE END Callback01 */
 }
 
