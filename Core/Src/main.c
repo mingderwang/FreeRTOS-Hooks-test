@@ -18,7 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "cmsis_os.h"
+#include "cmsis_os2.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -43,21 +43,42 @@
 /* Private variables ---------------------------------------------------------*/
 UART_HandleTypeDef hlpuart1;
 
-osThreadId defaultTaskHandle;
-osThreadId print_idleHandle;
-osTimerId myTimer01Handle;
-osSemaphoreId printfBinarySem01Handle;
+/* Definitions for defaultTask */
+osThreadId_t defaultTaskHandle;
+const osThreadAttr_t defaultTask_attributes = {
+  .name = "defaultTask",
+  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 128 * 4
+};
+/* Definitions for print_idle */
+osThreadId_t print_idleHandle;
+const osThreadAttr_t print_idle_attributes = {
+  .name = "print_idle",
+  .priority = (osPriority_t) osPriorityLow,
+  .stack_size = 128 * 4
+};
+/* Definitions for myTimer01 */
+osTimerId_t myTimer01Handle;
+const osTimerAttr_t myTimer01_attributes = {
+  .name = "myTimer01"
+};
+/* Definitions for printfBinarySem01 */
+osSemaphoreId_t printfBinarySem01Handle;
+const osSemaphoreAttr_t printfBinarySem01_attributes = {
+  .name = "printfBinarySem01"
+};
 /* USER CODE BEGIN PV */
 static uint32_t ulIdleCycleCount;
+static osStatus_t semaGet;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_LPUART1_UART_Init(void);
-void StartDefaultTask(void const * argument);
-void StartTask02(void const * argument);
-void Callback01(void const * argument);
+void StartDefaultTask(void *argument);
+void StartTask02(void *argument);
+void Callback01(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -106,24 +127,25 @@ int main(void)
 
   /* USER CODE END 2 */
 
+  /* Init scheduler */
+  osKernelInitialize();
+
   /* USER CODE BEGIN RTOS_MUTEX */
 	/* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
 
   /* Create the semaphores(s) */
-  /* definition and creation of printfBinarySem01 */
-  osSemaphoreDef(printfBinarySem01);
-  printfBinarySem01Handle = osSemaphoreCreate(osSemaphore(printfBinarySem01), 1);
+  /* creation of printfBinarySem01 */
+  printfBinarySem01Handle = osSemaphoreNew(1, 1, &printfBinarySem01_attributes);
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
 	/* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
 
   /* Create the timer(s) */
-  /* definition and creation of myTimer01 */
-  osTimerDef(myTimer01, Callback01);
-  myTimer01Handle = osTimerCreate(osTimer(myTimer01), osTimerPeriodic, NULL);
-  osTimerStart(myTimer01Handle, 2000);
+  /* creation of myTimer01 */
+  myTimer01Handle = osTimerNew(Callback01, osTimerPeriodic, NULL, &myTimer01_attributes);
+
   /* USER CODE BEGIN RTOS_TIMERS */
 	/* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
@@ -133,18 +155,21 @@ int main(void)
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* definition and creation of defaultTask */
-  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
-  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+  /* creation of defaultTask */
+  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
-  /* definition and creation of print_idle */
-  osThreadDef(print_idle, StartTask02, osPriorityIdle, 0, 128);
-  print_idleHandle = osThreadCreate(osThread(print_idle), NULL);
+  /* creation of print_idle */
+  print_idleHandle = osThreadNew(StartTask02, NULL, &print_idle_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
   osSemaphoreRelease(printfBinarySem01Handle);
+  osTimerStart(myTimer01Handle,200);
   /* USER CODE END RTOS_THREADS */
+
+  /* USER CODE BEGIN RTOS_EVENTS */
+  /* add events, ... */
+  /* USER CODE END RTOS_EVENTS */
 
   /* Start scheduler */
   osKernelStart();
@@ -312,17 +337,16 @@ static void UARTPrintf(const char *pFormat, ...) {
  * @retval None
  */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void const * argument)
+void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
-	int32_t val;
 	/* Infinite loop */
 	for (;;) {
 		osDelay(2000);
-		val = osSemaphoreWait(printfBinarySem01Handle, 1); // wait forever
-		if (val > 0) {
+		semaGet = osSemaphoreAcquire(printfBinarySem01Handle, 1); // wait forever
+		if (semaGet == osOK) {
 			// semaphore was acquired
-			UARTPrintf("Hello %s\n\r", "jongen");
+			UARTPrintf("Hallo %s\n\r", "jongen");
 			osSemaphoreRelease(printfBinarySem01Handle);
 		}
 	}
@@ -336,15 +360,14 @@ void StartDefaultTask(void const * argument)
  * @retval None
  */
 /* USER CODE END Header_StartTask02 */
-void StartTask02(void const * argument)
+void StartTask02(void *argument)
 {
   /* USER CODE BEGIN StartTask02 */
-	int32_t val;
 	/* Infinite loop */
 	for (;;) {
 		osDelay(500);
-		val = osSemaphoreWait(printfBinarySem01Handle, 1); // wait forever
-		if (val > 0) {
+		semaGet = osSemaphoreAcquire(printfBinarySem01Handle, 1); // wait forever
+		if (semaGet == osOK) {
 			// semaphore was acquired
 			UARTPrintf("Hello %s\n\r", "boy");
 			osSemaphoreRelease(printfBinarySem01Handle);
@@ -354,7 +377,7 @@ void StartTask02(void const * argument)
 }
 
 /* Callback01 function */
-void Callback01(void const * argument)
+void Callback01(void *argument)
 {
   /* USER CODE BEGIN Callback01 */
 	BSP_LED_Toggle(LED2);
