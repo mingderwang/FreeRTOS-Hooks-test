@@ -24,7 +24,6 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include <stdarg.h>
-#include <limits.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -315,32 +314,10 @@ void UARTPrintf(const char *pFormat, ...) {
  */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	{
-
-		/* The xHigherPriorityTaskWoken parameter must be initialized to pdFALSE */
-
-		BaseType_t xHigherPriorityTaskWoken;
-
-		xHigherPriorityTaskWoken = pdFALSE;
-
 		/* your user button callback here*/
-
-		if (GPIO_Pin == USER_BUTTON_PIN)
-
-		{
-
-			/* Send the notification directly to the task handler*/
-
-			vTaskNotifyGiveFromISR(defaultTaskHandle,
-					&xHigherPriorityTaskWoken);
-			/*If xHigherPriorityTaskWoken was set to pdTRUE inside vTaskNotifyGiveFromISR()
-
-
-
-			 then calling portYIELD_FROM_ISR() will request a context switch. */
-
-			portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+		if (GPIO_Pin == USER_BUTTON_PIN) {
+			osThreadFlagsSet(defaultTaskHandle, 0x01U); /* set signal to clock thread    */
 		}
-
 	}
 }
 
@@ -356,17 +333,9 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 void StartDefaultTask(void *argument) {
 	/* USER CODE BEGIN 5 */
 	/* Infinite loop */
-	uint32_t ulNotifiedValue;
 	for (;;) {
-		xTaskNotifyWait(//0, /* Wait for 0th notification. */
-		0x00, /* Don't clear any notification bits on entry. */
-		ULONG_MAX, /* Reset the notification value to 0 on exit. */
-		&ulNotifiedValue, /* Notified value pass out in
-		 ulNotifiedValue. */
-		portMAX_DELAY); /* Block indefinitely. */
-
+		osThreadFlagsWait(0x00000001U, osFlagsWaitAny, osWaitForever); // Wait forever until thread flag 1 is set.
 		UARTPrintf("hello\n\r");
-
 	}
 	/* USER CODE END 5 */
 }
