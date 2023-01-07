@@ -37,7 +37,7 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-#define printf(x) UARTPrintf(x)
+#define printf(a,b) UARTPrintf(a,b)
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -332,10 +332,13 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 /* USER CODE END Header_StartDefaultTask */
 void StartDefaultTask(void *argument) {
 	/* USER CODE BEGIN 5 */
+	uint32_t tick;
+
 	/* Infinite loop */
 	for (;;) {
 		osThreadFlagsWait(0x00000001U, osFlagsWaitAny, osWaitForever); // Wait forever until thread flag 1 is set.
-		printf("hello\n\r");
+		tick = osKernelGetTickCount();
+		printf("hello %d\n\r", tick);
 	}
 	/* USER CODE END 5 */
 }
