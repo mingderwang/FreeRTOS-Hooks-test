@@ -37,7 +37,7 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
+#define printf(x) UARTPrintf(x)
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -335,7 +335,7 @@ void StartDefaultTask(void *argument) {
 	/* Infinite loop */
 	for (;;) {
 		osThreadFlagsWait(0x00000001U, osFlagsWaitAny, osWaitForever); // Wait forever until thread flag 1 is set.
-		UARTPrintf("hello\n\r");
+		printf("hello\n\r");
 	}
 	/* USER CODE END 5 */
 }
