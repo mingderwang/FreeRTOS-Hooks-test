@@ -326,7 +326,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	{
 		/* your user button callback here*/
 		if (GPIO_Pin == USER_BUTTON_PIN) {
-			osThreadFlagsSet(defaultTaskHandle, 0x01U); /* set signal to clock thread    */
+			osThreadFlagsSet(defaultTaskHandle, 0x10U); /* set signal to clock thread    */
 		}
 	}
 }
@@ -346,7 +346,7 @@ void StartDefaultTask(void *argument) {
 
 	/* Infinite loop */
 	for (;;) {
-		osThreadFlagsWait(0x00000001U, osFlagsWaitAny, osWaitForever); // Wait forever until thread flag 1 is set.
+		osThreadFlagsWait(0x00000011U, osFlagsWaitAll, osWaitForever); // Wait forever until thread flag 1 is set.
 		tick = osKernelGetTickCount();
 		printf("check by PB %d\n\r", tick);
 		systick = osKernelGetSysTimerCount();
@@ -389,11 +389,7 @@ void StartTask02(void *argument) {
 /* Callback01 function */
 void Callback01(void *argument) {
 	/* USER CODE BEGIN Callback01 */
-	uint32_t tick;
-	osThreadFlagsWait(0x00000001U, osFlagsWaitAny, 1); // Wait forever until thread flag 1 is set.
-	tick = osKernelGetSysTimerCount();
-	printf("hello %d\n\r", tick);
-
+	osThreadFlagsSet(defaultTaskHandle, 0x0001U); /* set signal to clock thread    */
 	/* USER CODE END Callback01 */
 }
 
