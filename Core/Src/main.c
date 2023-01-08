@@ -51,6 +51,9 @@ const osThreadAttr_t defaultTask_attributes = { .name = "defaultTask",
 osThreadId_t myTask02Handle;
 const osThreadAttr_t myTask02_attributes = { .name = "myTask02", .priority =
 		(osPriority_t) osPriorityLow, .stack_size = 128 * 4 };
+/* Definitions for myTimer01 */
+osTimerId_t myTimer01Handle;
+const osTimerAttr_t myTimer01_attributes = { .name = "myTimer01" };
 /* Definitions for myBinarySem01 */
 osSemaphoreId_t myBinarySem01Handle;
 const osSemaphoreAttr_t myBinarySem01_attributes = { .name = "myBinarySem01" };
@@ -68,6 +71,7 @@ static void MX_GPIO_Init(void);
 static void MX_LPUART1_UART_Init(void);
 void StartDefaultTask(void *argument);
 void StartTask02(void *argument);
+void Callback01(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -100,7 +104,7 @@ int main(void) {
 	SystemClock_Config();
 
 	/* USER CODE BEGIN SysInit */
-
+	SysTick_Config(SystemCoreClock / 1000000);
 	/* USER CODE END SysInit */
 
 	/* Initialize all configured peripherals */
@@ -128,8 +132,14 @@ int main(void) {
 	/* add semaphores, ... */
 	/* USER CODE END RTOS_SEMAPHORES */
 
+	/* Create the timer(s) */
+	/* creation of myTimer01 */
+	myTimer01Handle = osTimerNew(Callback01, osTimerPeriodic, NULL,
+			&myTimer01_attributes);
+
 	/* USER CODE BEGIN RTOS_TIMERS */
 	/* start timers, add new ones, ... */
+	osTimerStart (myTimer01Handle,1000);
 	/* USER CODE END RTOS_TIMERS */
 
 	/* USER CODE BEGIN RTOS_QUEUES */
@@ -332,13 +342,15 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 /* USER CODE END Header_StartDefaultTask */
 void StartDefaultTask(void *argument) {
 	/* USER CODE BEGIN 5 */
-	uint32_t tick;
+	uint32_t tick, systick;
 
 	/* Infinite loop */
 	for (;;) {
 		osThreadFlagsWait(0x00000001U, osFlagsWaitAny, osWaitForever); // Wait forever until thread flag 1 is set.
 		tick = osKernelGetTickCount();
-		printf("hello %d\n\r", tick);
+		printf("check by PB %d\n\r", tick);
+		systick = osKernelGetSysTimerCount();
+		printf("systick %d\n\r", systick);
 	}
 	/* USER CODE END 5 */
 }
@@ -374,6 +386,17 @@ void StartTask02(void *argument) {
 	/* USER CODE END StartTask02 */
 }
 
+/* Callback01 function */
+void Callback01(void *argument) {
+	/* USER CODE BEGIN Callback01 */
+	uint32_t tick;
+	osThreadFlagsWait(0x00000001U, osFlagsWaitAny, 1); // Wait forever until thread flag 1 is set.
+	tick = osKernelGetSysTimerCount();
+	printf("hello %d\n\r", tick);
+
+	/* USER CODE END Callback01 */
+}
+
 /**
  * @brief  Period elapsed callback in non blocking mode
  * @note   This function is called  when TIM6 interrupt took place, inside
@@ -385,10 +408,11 @@ void StartTask02(void *argument) {
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	/* USER CODE BEGIN Callback 0 */
 
-	/* USER CODE END Callback 0 */
 	if (htim->Instance == TIM6) {
 		HAL_IncTick();
 	}
+	/* USER CODE END Callback 0 */
+
 	/* USER CODE BEGIN Callback 1 */
 
 	/* USER CODE END Callback 1 */
