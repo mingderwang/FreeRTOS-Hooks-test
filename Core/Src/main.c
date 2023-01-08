@@ -37,7 +37,7 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-#define printf(a,b) UARTPrintf(a,b)
+#define printf(...) UARTPrintf(__VA_ARGS__)
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -57,6 +57,27 @@ const osThreadAttr_t myTask02_attributes = {
   .priority = (osPriority_t) osPriorityLow,
   .stack_size = 128 * 4
 };
+/* Definitions for myTask03 */
+osThreadId_t myTask03Handle;
+const osThreadAttr_t myTask03_attributes = {
+  .name = "myTask03",
+  .priority = (osPriority_t) osPriorityLow,
+  .stack_size = 128 * 4
+};
+/* Definitions for myTask04 */
+osThreadId_t myTask04Handle;
+const osThreadAttr_t myTask04_attributes = {
+  .name = "myTask04",
+  .priority = (osPriority_t) osPriorityLow,
+  .stack_size = 128 * 4
+};
+/* Definitions for myTask05 */
+osThreadId_t myTask05Handle;
+const osThreadAttr_t myTask05_attributes = {
+  .name = "myTask05",
+  .priority = (osPriority_t) osPriorityLow,
+  .stack_size = 128 * 4
+};
 /* Definitions for myTimer01 */
 osTimerId_t myTimer01Handle;
 const osTimerAttr_t myTimer01_attributes = {
@@ -68,6 +89,7 @@ const osSemaphoreAttr_t myBinarySem01_attributes = {
   .name = "myBinarySem01"
 };
 /* USER CODE BEGIN PV */
+osEventFlagsId_t EventGroup1;
 uint32_t ulIdleCycleCount;
 osStatus_t semaGet;
 uint8_t BlinkSpeed = 0;
@@ -81,6 +103,9 @@ static void MX_GPIO_Init(void);
 static void MX_LPUART1_UART_Init(void);
 void StartDefaultTask(void *argument);
 void StartTask02(void *argument);
+void StartTask03(void *argument);
+void StartTask04(void *argument);
+void StartTask05(void *argument);
 void Callback01(void *argument);
 
 /* USER CODE BEGIN PFP */
@@ -149,7 +174,7 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_TIMERS */
 	/* start timers, add new ones, ... */
-	osTimerStart (myTimer01Handle,1000);
+	osTimerStart (myTimer01Handle,5000);
   /* USER CODE END RTOS_TIMERS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
@@ -163,13 +188,22 @@ int main(void)
   /* creation of myTask02 */
   myTask02Handle = osThreadNew(StartTask02, NULL, &myTask02_attributes);
 
+  /* creation of myTask03 */
+  myTask03Handle = osThreadNew(StartTask03, NULL, &myTask03_attributes);
+
+  /* creation of myTask04 */
+  myTask04Handle = osThreadNew(StartTask04, NULL, &myTask04_attributes);
+
+  /* creation of myTask05 */
+  myTask05Handle = osThreadNew(StartTask05, NULL, &myTask05_attributes);
+
   /* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
 	ulIdleCycleCount = 0;
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
-	/* add events, ... */
+	EventGroup1 = osEventFlagsNew(NULL);
   /* USER CODE END RTOS_EVENTS */
 
   /* Start scheduler */
@@ -342,7 +376,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	{
 		/* your user button callback here*/
 		if (GPIO_Pin == USER_BUTTON_PIN) {
-			osThreadFlagsSet(defaultTaskHandle, 0x10U); /* set signal to clock thread    */
+		    osEventFlagsSet(EventGroup1, 0x50);
+		    printf("Button is pressed\n\r");
 		}
 	}
 }
@@ -404,12 +439,80 @@ void StartTask02(void *argument)
   /* USER CODE END StartTask02 */
 }
 
+/* USER CODE BEGIN Header_StartTask03 */
+/**
+* @brief Function implementing the myTask03 thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartTask03 */
+void StartTask03(void *argument)
+{
+  /* USER CODE BEGIN StartTask03 */
+  /* Infinite loop */
+  for(;;)
+  {
+    osEventFlagsWait(EventGroup1, 0x51, osFlagsWaitAll, osWaitForever);
+    printf("StartTask03 is done\n\r");
+  }
+  /* USER CODE END StartTask03 */
+}
+
+/* USER CODE BEGIN Header_StartTask04 */
+/**
+* @brief Function implementing the myTask04 thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartTask04 */
+void StartTask04(void *argument)
+{
+  /* USER CODE BEGIN StartTask04 */
+  /* Infinite loop */
+  for(;;)
+  {
+	  osDelay(5000);
+	  osEventFlagsSet(EventGroup1, 0x01);
+  }
+  /* USER CODE END StartTask04 */
+}
+
+/* USER CODE BEGIN Header_StartTask05 */
+/**
+* @brief Function implementing the myTask05 thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartTask05 */
+void StartTask05(void *argument)
+{
+  /* USER CODE BEGIN StartTask05 */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartTask05 */
+}
+
 /* Callback01 function */
 void Callback01(void *argument)
 {
   /* USER CODE BEGIN Callback01 */
-	osThreadFlagsSet(defaultTaskHandle, 0x0001U); /* set signal to clock thread    */
-  /* USER CODE END Callback01 */
+	uint32_t status;
+	status = osEventFlagsWait(myTimer01Handle, 0x01, osFlagsNoClear, 1); /* set signal to clock thread    */
+    switch (status) {
+        case osFlagsErrorTimeout:
+            printf("EVFlagsWait Timeout\n\r");
+            break;
+        case osOK:
+        	printf("EVFlagsWait got osOK\n\r");
+        	break;
+        default:
+        	printf("Callback01 done %d\n\r", status);
+    }
+
+	/* USER CODE END Callback01 */
 }
 
 /**
