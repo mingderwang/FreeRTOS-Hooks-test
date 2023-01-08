@@ -50,31 +50,10 @@ const osThreadAttr_t defaultTask_attributes = {
   .priority = (osPriority_t) osPriorityNormal,
   .stack_size = 128 * 4
 };
-/* Definitions for myTask02 */
-osThreadId_t myTask02Handle;
-const osThreadAttr_t myTask02_attributes = {
-  .name = "myTask02",
-  .priority = (osPriority_t) osPriorityLow,
-  .stack_size = 128 * 4
-};
-/* Definitions for myTask03 */
-osThreadId_t myTask03Handle;
-const osThreadAttr_t myTask03_attributes = {
-  .name = "myTask03",
-  .priority = (osPriority_t) osPriorityLow,
-  .stack_size = 128 * 4
-};
-/* Definitions for myTask04 */
-osThreadId_t myTask04Handle;
-const osThreadAttr_t myTask04_attributes = {
-  .name = "myTask04",
-  .priority = (osPriority_t) osPriorityLow,
-  .stack_size = 128 * 4
-};
-/* Definitions for myTask05 */
-osThreadId_t myTask05Handle;
-const osThreadAttr_t myTask05_attributes = {
-  .name = "myTask05",
+/* Definitions for myTaskLow02 */
+osThreadId_t myTaskLow02Handle;
+const osThreadAttr_t myTaskLow02_attributes = {
+  .name = "myTaskLow02",
   .priority = (osPriority_t) osPriorityLow,
   .stack_size = 128 * 4
 };
@@ -82,6 +61,12 @@ const osThreadAttr_t myTask05_attributes = {
 osTimerId_t myTimer01Handle;
 const osTimerAttr_t myTimer01_attributes = {
   .name = "myTimer01"
+};
+/* Definitions for myMutex01 */
+osMutexId_t myMutex01Handle;
+const osMutexAttr_t myMutex01_attributes = {
+  .name = "myMutex01",
+//  .attr_bits = osMutexRecursive,
 };
 /* Definitions for myBinarySem01 */
 osSemaphoreId_t myBinarySem01Handle;
@@ -103,9 +88,6 @@ static void MX_GPIO_Init(void);
 static void MX_LPUART1_UART_Init(void);
 void StartDefaultTask(void *argument);
 void StartTask02(void *argument);
-void StartTask03(void *argument);
-void StartTask04(void *argument);
-void StartTask05(void *argument);
 void Callback01(void *argument);
 
 /* USER CODE BEGIN PFP */
@@ -155,6 +137,9 @@ int main(void)
 
   /* Init scheduler */
   osKernelInitialize();
+  /* Create the mutex(es) */
+  /* creation of myMutex01 */
+  myMutex01Handle = osMutexNew(&myMutex01_attributes);
 
   /* USER CODE BEGIN RTOS_MUTEX */
 	/* add mutexes, ... */
@@ -185,17 +170,8 @@ int main(void)
   /* creation of defaultTask */
   defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
-  /* creation of myTask02 */
-  myTask02Handle = osThreadNew(StartTask02, NULL, &myTask02_attributes);
-
-  /* creation of myTask03 */
-  myTask03Handle = osThreadNew(StartTask03, NULL, &myTask03_attributes);
-
-  /* creation of myTask04 */
-  myTask04Handle = osThreadNew(StartTask04, NULL, &myTask04_attributes);
-
-  /* creation of myTask05 */
-  myTask05Handle = osThreadNew(StartTask05, NULL, &myTask05_attributes);
+  /* creation of myTaskLow02 */
+  myTaskLow02Handle = osThreadNew(StartTask02, NULL, &myTaskLow02_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
@@ -351,6 +327,17 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+void UseMutexRecursively(int count) {
+  osStatus_t result = osMutexAcquire(myMutex01Handle, osWaitForever);  // lock count is incremented, might fail when lock count is depleted
+  if (result == osOK) {
+    if (count < 10) {
+      UseMutexRecursively(count + 1);
+    }
+    osMutexRelease(myMutex01Handle); // lock count is decremented, actually releases the mutex on lock count zero
+  }
+}
+
 void UARTPrintf(const char *pFormat, ...) {
 	char buffer[64];
 	va_list args;
@@ -376,7 +363,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	{
 		/* your user button callback here*/
 		if (GPIO_Pin == USER_BUTTON_PIN) {
-		    osEventFlagsSet(EventGroup1, 0x50);
+			UseMutexRecursively(5);
 		    printf("Button is pressed\n\r");
 		}
 	}
@@ -439,80 +426,12 @@ void StartTask02(void *argument)
   /* USER CODE END StartTask02 */
 }
 
-/* USER CODE BEGIN Header_StartTask03 */
-/**
-* @brief Function implementing the myTask03 thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartTask03 */
-void StartTask03(void *argument)
-{
-  /* USER CODE BEGIN StartTask03 */
-  /* Infinite loop */
-  for(;;)
-  {
-    osEventFlagsWait(EventGroup1, 0x51, osFlagsWaitAll, osWaitForever);
-    printf("StartTask03 is done\n\r");
-  }
-  /* USER CODE END StartTask03 */
-}
-
-/* USER CODE BEGIN Header_StartTask04 */
-/**
-* @brief Function implementing the myTask04 thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartTask04 */
-void StartTask04(void *argument)
-{
-  /* USER CODE BEGIN StartTask04 */
-  /* Infinite loop */
-  for(;;)
-  {
-	  osDelay(5000);
-	  osEventFlagsSet(EventGroup1, 0x01);
-  }
-  /* USER CODE END StartTask04 */
-}
-
-/* USER CODE BEGIN Header_StartTask05 */
-/**
-* @brief Function implementing the myTask05 thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartTask05 */
-void StartTask05(void *argument)
-{
-  /* USER CODE BEGIN StartTask05 */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
-  /* USER CODE END StartTask05 */
-}
-
 /* Callback01 function */
 void Callback01(void *argument)
 {
   /* USER CODE BEGIN Callback01 */
-	uint32_t status;
-	status = osEventFlagsWait(myTimer01Handle, 0x01, osFlagsNoClear, 1); /* set signal to clock thread    */
-    switch (status) {
-        case osFlagsErrorTimeout:
-            printf("EVFlagsWait Timeout\n\r");
-            break;
-        case osOK:
-        	printf("EVFlagsWait got osOK\n\r");
-        	break;
-        default:
-        	printf("Callback01 done %d\n\r", status);
-    }
-
-	/* USER CODE END Callback01 */
+	UseMutexRecursively(5);
+  /* USER CODE END Callback01 */
 }
 
 /**
