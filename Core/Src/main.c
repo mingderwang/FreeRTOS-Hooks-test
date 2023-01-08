@@ -66,7 +66,7 @@ const osTimerAttr_t myTimer01_attributes = {
 osMutexId_t myMutex01Handle;
 const osMutexAttr_t myMutex01_attributes = {
   .name = "myMutex01",
-//  .attr_bits = osMutexRecursive,
+  .attr_bits = osMutexRecursive,
 };
 /* Definitions for myBinarySem01 */
 osSemaphoreId_t myBinarySem01Handle;
