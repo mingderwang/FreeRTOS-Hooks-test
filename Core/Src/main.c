@@ -33,6 +33,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define FLAGS_MSK1 0x00000002U
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -54,8 +55,13 @@ const osThreadAttr_t defaultTask_attributes = {
 osThreadId_t myTaskLow02Handle;
 const osThreadAttr_t myTaskLow02_attributes = {
   .name = "myTaskLow02",
-  .priority = (osPriority_t) osPriorityLow,
+  .priority = (osPriority_t) osPriorityNormal,
   .stack_size = 128 * 4
+};
+/* Definitions for myQueue01 */
+osMessageQueueId_t myQueue01Handle;
+const osMessageQueueAttr_t myQueue01_attributes = {
+  .name = "myQueue01"
 };
 /* Definitions for myTimer01 */
 osTimerId_t myTimer01Handle;
@@ -65,8 +71,7 @@ const osTimerAttr_t myTimer01_attributes = {
 /* Definitions for myMutex01 */
 osMutexId_t myMutex01Handle;
 const osMutexAttr_t myMutex01_attributes = {
-  .name = "myMutex01",
-  .attr_bits = osMutexRecursive,
+  .name = "myMutex01"
 };
 /* Definitions for myBinarySem01 */
 osSemaphoreId_t myBinarySem01Handle;
@@ -74,12 +79,7 @@ const osSemaphoreAttr_t myBinarySem01_attributes = {
   .name = "myBinarySem01"
 };
 /* USER CODE BEGIN PV */
-osEventFlagsId_t EventGroup1;
-uint32_t ulIdleCycleCount;
-osStatus_t semaGet;
-uint8_t BlinkSpeed = 0;
-__IO uint32_t UserButtonStatus = 0;
-uint32_t uwIncrementState = 0;
+osEventFlagsId_t evt_id;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -91,12 +91,19 @@ void StartTask02(void *argument);
 void Callback01(void *argument);
 
 /* USER CODE BEGIN PFP */
-
+void Task_action(char message);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+int Init_Events (void) {
 
+  evt_id = osEventFlagsNew(NULL);
+  if (evt_id == NULL) {
+    ; // Event Flags object not created, handle failure
+  }
+  return(0);
+}
 /* USER CODE END 0 */
 
 /**
@@ -115,7 +122,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
+  Init_Events();
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -162,6 +169,10 @@ int main(void)
 	osTimerStart (myTimer01Handle,5000);
   /* USER CODE END RTOS_TIMERS */
 
+  /* Create the queue(s) */
+  /* creation of myQueue01 */
+  myQueue01Handle = osMessageQueueNew (16, sizeof(uint16_t), &myQueue01_attributes);
+
   /* USER CODE BEGIN RTOS_QUEUES */
 	/* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
@@ -175,11 +186,9 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
-	ulIdleCycleCount = 0;
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
-	EventGroup1 = osEventFlagsNew(NULL);
   /* USER CODE END RTOS_EVENTS */
 
   /* Start scheduler */
@@ -328,6 +337,11 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+void Task_action(char message) {
+	ITM_SendChar(message);
+	ITM_SendChar('\n');
+}
+
 void UseMutexRecursively(int count) {
   osStatus_t result = osMutexAcquire(myMutex01Handle, osWaitForever);  // lock count is incremented, might fail when lock count is depleted
   if (result == osOK) {
@@ -364,7 +378,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 		/* your user button callback here*/
 		if (GPIO_Pin == USER_BUTTON_PIN) {
 			UseMutexRecursively(5);
-		    printf("Button is pressed\n\r");
+		    Task_action('1');
 		}
 	}
 }
@@ -381,15 +395,10 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
-	uint32_t tick, systick;
-
 	/* Infinite loop */
 	for (;;) {
-		osThreadFlagsWait(0x00000011U, osFlagsWaitAll, osWaitForever); // Wait forever until thread flag 1 is set.
-		tick = osKernelGetTickCount();
-		printf("check by PB %d\n\r", tick);
-		systick = osKernelGetSysTimerCount();
-		printf("systick %d\n\r", systick);
+	    osEventFlagsSet(evt_id, FLAGS_MSK1);
+	    osThreadYield();                         // suspend thread
 	}
   /* USER CODE END 5 */
 }
@@ -404,24 +413,14 @@ void StartDefaultTask(void *argument)
 void StartTask02(void *argument)
 {
   /* USER CODE BEGIN StartTask02 */
+	  uint32_t flags;
+	  char c;
 	/* Infinite loop */
 	for (;;) {
-		osDelay(1000);
-		/* Block indefinitely (without a timeout, so no need to check the function's
-		 return value) to wait for a notification.  Here the RTOS task notification
-		 is being used as a binary semaphore, so the notification value is cleared
-		 to zero on exit.  NOTE!  Real applications should not block indefinitely,
-		 but instead time out occasionally in order to handle error conditions
-		 that may prevent the interrupt from sending any more notifications. */
-		ulTaskNotifyTake( //0, /* Use the 0th notification */
-				pdTRUE, /* Clear the notification value
-				 before exiting. */
-				portMAX_DELAY); /* Block indefinitely. */
-
-		/* The RTOS task notification is used as a binary (as opposed to a
-		 counting) semaphore, so only go back to wait for further notifications
-		 when all events pending in the peripheral have been processed. */
-
+	    flags = osEventFlagsWait(evt_id, FLAGS_MSK1, osFlagsWaitAny, osWaitForever);
+	    //handle event
+	    c = flags +'0';
+	    Task_action(c);
 	}
   /* USER CODE END StartTask02 */
 }
